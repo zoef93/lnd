@@ -2,7 +2,7 @@
 // Copyright (c) 2015-2016 The Decred developers
 // Copyright (C) 2015-2017 The Lightning Network Developers
 
-package main
+package daemon
 
 import (
 	"fmt"
@@ -66,14 +66,15 @@ const (
 
 var (
 	// TODO(roasbeef): base off of datadir instead?
-	lndHomeDir          = btcutil.AppDataDir("lnd", false)
-	defaultConfigFile   = filepath.Join(lndHomeDir, defaultConfigFilename)
-	defaultDataDir      = filepath.Join(lndHomeDir, defaultDataDirname)
-	defaultTLSCertPath  = filepath.Join(lndHomeDir, defaultTLSCertFilename)
-	defaultTLSKeyPath   = filepath.Join(lndHomeDir, defaultTLSKeyFilename)
-	defaultAdminMacPath = filepath.Join(lndHomeDir, defaultAdminMacFilename)
-	defaultReadMacPath  = filepath.Join(lndHomeDir, defaultReadMacFilename)
-	defaultLogDir       = filepath.Join(lndHomeDir, defaultLogDirname)
+	lndHomeDir string
+//	lndHomeDir          = btcutil.AppDataDir("lnd", false)
+//	defaultConfigFile   = filepath.Join(lndHomeDir, defaultConfigFilename)
+//	defaultDataDir      = filepath.Join(lndHomeDir, defaultDataDirname)
+//	defaultTLSCertPath  = filepath.Join(lndHomeDir, defaultTLSCertFilename)
+//	defaultTLSKeyPath   = filepath.Join(lndHomeDir, defaultTLSKeyFilename)
+//	defaultAdminMacPath = filepath.Join(lndHomeDir, defaultAdminMacFilename)
+//	defaultReadMacPath  = filepath.Join(lndHomeDir, defaultReadMacFilename)
+//	defaultLogDir       = filepath.Join(lndHomeDir, defaultLogDirname)
 
 	btcdHomeDir            = btcutil.AppDataDir("btcd", false)
 	defaultBtcdRPCCertFile = filepath.Join(btcdHomeDir, "rpc.cert")
@@ -103,6 +104,7 @@ type chainConfig struct {
 }
 
 type neutrinoConfig struct {
+	Active       bool          `long:"active" description:"If SPV mode should be active or not."`
 	AddPeers     []string      `short:"a" long:"addpeer" description:"Add a peer to connect with at startup"`
 	ConnectPeers []string      `long:"connect" description:"Connect only to the specified peers at startup"`
 	MaxPeers     int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
@@ -192,7 +194,17 @@ type config struct {
 // 	2) Pre-parse the command line to check for an alternative config file
 // 	3) Load configuration file overwriting defaults with any specified options
 // 	4) Parse CLI options and overwrite/add any specified options
-func loadConfig() (*config, error) {
+//func loadConfig() (*config, error) {
+func loadConfig(appDir string) (*config, error) {
+	lndHomeDir = appDir
+	defaultConfigFile   := filepath.Join(lndHomeDir, defaultConfigFilename)
+	defaultDataDir      := filepath.Join(lndHomeDir, defaultDataDirname)
+	defaultTLSCertPath  := filepath.Join(lndHomeDir, defaultTLSCertFilename)
+	defaultTLSKeyPath   := filepath.Join(lndHomeDir, defaultTLSKeyFilename)
+	defaultAdminMacPath := filepath.Join(lndHomeDir, defaultAdminMacFilename)
+	defaultReadMacPath  := filepath.Join(lndHomeDir, defaultReadMacFilename)
+	defaultLogDir       := filepath.Join(lndHomeDir, defaultLogDirname)
+
 	defaultCfg := config{
 		ConfigFile:   defaultConfigFile,
 		DataDir:      defaultDataDir,
@@ -202,12 +214,15 @@ func loadConfig() (*config, error) {
 		AdminMacPath: defaultAdminMacPath,
 		ReadMacPath:  defaultReadMacPath,
 		LogDir:       defaultLogDir,
+		// add some ?
 		Bitcoin: &chainConfig{
+			//RPCHost: defaultRPCHost,
+			//RPCCert: defaultBtcdRPCCertFile,
 			MinHTLC:       defaultBitcoinMinHTLCMSat,
 			BaseFee:       defaultBitcoinBaseFeeMSat,
 			FeeRate:       defaultBitcoinFeeRate,
 			TimeLockDelta: defaultBitcoinTimeLockDelta,
-			Node:          "btcd",
+			Node:          "neutrino",
 		},
 		BtcdMode: &btcdConfig{
 			RPCHost: defaultRPCHost,

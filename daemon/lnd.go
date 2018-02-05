@@ -2,7 +2,7 @@
 // Copyright (c) 2015-2016 The Decred developers
 // Copyright (C) 2015-2017 The Lightning Network Developers
 
-package main
+package daemon
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
-	"runtime"
+	//"runtime"
 	"runtime/pprof"
 	"sync"
 	"time"
@@ -33,7 +33,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	flags "github.com/jessevdk/go-flags"
+	//flags "github.com/jessevdk/go-flags"
 	"github.com/lightningnetwork/lnd/autopilot"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -95,14 +95,25 @@ var (
 // lndMain is the true entry point for lnd. This function is required since
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
-func lndMain() error {
+//func lndMain() error {
+func LndMain(appDir string) error {
 	// Load the configuration, and parse any command line options. This
 	// function will also set up logging properly.
-	loadedConfig, err := loadConfig()
+	//loadedConfig, err := loadConfig()
+	loadedConfig, err := loadConfig(appDir)
 	if err != nil {
 		return err
 	}
 	cfg = loadedConfig
+
+	fmt.Println(cfg)
+	fmt.Println("bitcoin:", cfg.Bitcoin.Active)
+	fmt.Println("chain dir:", cfg.Bitcoin.ChainDir)
+	fmt.Println("test net:", cfg.Bitcoin.TestNet3)
+	fmt.Println("sim net:", cfg.Bitcoin.SimNet)
+	fmt.Println("neutrino:", cfg.NeutrinoMode.Active)
+	fmt.Println("connect peers", cfg.NeutrinoMode.ConnectPeers)
+
 	defer func() {
 		if logRotator != nil {
 			logRotator.Close()
@@ -518,7 +529,7 @@ func lndMain() error {
 	ltndLog.Info("Shutdown complete")
 	return nil
 }
-
+/*
 func main() {
 	// Use all processor cores.
 	// TODO(roasbeef): remove this if required version # is > 1.6?
@@ -533,7 +544,7 @@ func main() {
 		}
 		os.Exit(1)
 	}
-}
+}*/
 
 // fileExists reports whether the named file or directory exists.
 // This function is taken from https://github.com/btcsuite/btcd
