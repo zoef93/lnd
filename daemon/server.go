@@ -152,6 +152,7 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 	globalFeatures := lnwire.NewRawFeatureVector()
 
 	serializedPubKey := privKey.PubKey().SerializeCompressed()
+
 	s := &server{
 		chanDB: chanDB,
 		cc:     cc,
@@ -160,6 +161,7 @@ func newServer(listenAddrs []string, chanDB *channeldb.DB, cc *chainControl,
 
 		identityPriv: privKey,
 		nodeSigner:   newNodeSigner(privKey),
+
 
 		// TODO(roasbeef): derive proper onion key based on rotation
 		// schedule
@@ -489,25 +491,32 @@ func (s *server) Start() error {
 	// funding transaction is spent in an attempt at an uncooperative close
 	// by the counterparty.
 	if err := s.cc.chainNotifier.Start(); err != nil {
+		srvrLog.Errorf("chain notifier: %v", err)
 		return err
 	}
 
 	if err := s.htlcSwitch.Start(); err != nil {
+		srvrLog.Errorf("htlc switch: %v", err)
 		return err
 	}
 	if err := s.utxoNursery.Start(); err != nil {
+		srvrLog.Errorf("utxo nursery: %v", err)
 		return err
 	}
 	if err := s.chainArb.Start(); err != nil {
+		srvrLog.Errorf("chain arb: %v", err)
 		return err
 	}
 	if err := s.breachArbiter.Start(); err != nil {
+		srvrLog.Errorf("breach arbiter: %v", err)
 		return err
 	}
 	if err := s.authGossiper.Start(); err != nil {
+		srvrLog.Errorf("auth gossiper: %v", err)
 		return err
 	}
 	if err := s.chanRouter.Start(); err != nil {
+		srvrLog.Errorf("chan router: %v", err)
 		return err
 	}
 
@@ -515,6 +524,7 @@ func (s *server) Start() error {
 	// establish persistent connections to our direct channel collaborators
 	// within the network.
 	if err := s.establishPersistentConnections(); err != nil {
+		srvrLog.Errorf("establish persistent connections: %v", err)
 		return err
 	}
 
