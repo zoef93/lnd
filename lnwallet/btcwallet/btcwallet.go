@@ -80,19 +80,31 @@ func New(cfg Config) (*BtcWallet, error) {
 	var wallet *base.Wallet
 	if !walletExists {
 		// Wallet has never been created, perform initial set up.
-		wallet, err = loader.CreateNewWallet(pubPass, cfg.PrivatePass,
-			cfg.HdSeed)
-		if err != nil {
+		wallet, err = loader.CreateNewWallet(
+			pubPass, cfg.PrivatePass, cfg.HdSeed,
+		)
+
+		switch {
+		// If the wallet already exists, then we'll ignore this error
+		// and proceed directly to opening the wallet.
+		case err == base.ErrExists:
+
+		// Otherwise, there's a greater error here, and we'll return
+		// early.
+		case err != nil:
 			return nil, err
 		}
-	} else {
-		// Wallet has been created and been initialized at this point,
-		// open it along with all the required DB namespaces, and the
-		// DB itself.
-		wallet, err = loader.OpenExistingWallet(pubPass, false)
-		if err != nil {
+
+		if err := loader.UnloadWallet(); err != nil {
 			return nil, err
 		}
+	}
+
+	// Wallet has been created and been initialized at this point, open it
+	// along with all the required DB namepsaces, and the DB itself.
+	wallet, err = loader.OpenExistingWallet(pubPass, false)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create a bucket within the wallet's database dedicated to storing
@@ -316,11 +328,11 @@ func (b *BtcWallet) FetchRootKey() (*btcec.PrivateKey, error) {
 //
 // This is a part of the WalletController interface.
 func (b *BtcWallet) SendOutputs(outputs []*wire.TxOut,
-	feeSatPerByte btcutil.Amount) (*chainhash.Hash, error) {
+	feeRate lnwallet.SatPerVByte) (*chainhash.Hash, error) {
 
-	// The fee rate is passed in using units of sat/byte, so we'll scale
+	// The fee rate is passed in using units of sat/vbyte, so we'll scale
 	// this up to sat/KB as the SendOutputs method requires this unit.
-	feeSatPerKB := feeSatPerByte * 1024
+	feeSatPerKB := btcutil.Amount(feeRate * 1000)
 
 	return b.wallet.SendOutputs(outputs, defaultAccount, 1, feeSatPerKB)
 }

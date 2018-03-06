@@ -1,6 +1,13 @@
-hash: ccd5caad2b8fa46f76338964fe06f5d6a35b9ed36dd5df8da0748e3e3ab99e6a
-updated: 2018-02-19T17:31:51.88595122-08:00
+hash: ca248eaf0ddf2e5daab59a13c8a62df255721e11fd10b0169b608f9c3349ad58
+updated: 2018-03-04T21:24:12.266291-05:00
 imports:
+- name: git.schwanenlied.me/yawning/bsaes.git
+  version: e06297f34865a50b8e473105e52cb64ad1b55da8
+  subpackages:
+  - ct32
+  - ct64
+  - ghash
+  - internal/modes
 - name: github.com/aead/chacha20
   version: d31a916ded42d1640b9d89a26f8abd53cc96790c
   subpackages:
@@ -119,7 +126,7 @@ imports:
   - hdkeychain
   - txsort
 - name: github.com/roasbeef/btcwallet
-  version: 4f4765c3e3baf4c7b40c311340a076ec83c5ef3a
+  version: 7447531cb6752ebf8680bc180e9a21c2c445ee7c
   subpackages:
   - chain
   - internal/helpers
@@ -142,13 +149,16 @@ imports:
   version: 501572607d0273fc75b3b261fa4904d63f6ffa0e
 - name: github.com/urfave/cli
   version: cfb38830724cc34fedffe9a2a29fb54fa9169cd1
+- name: github.com/Yawning/aez
+  version: 4dad034d9db2caec23fb8f69b9160ae16f8d46a3
 - name: golang.org/x/crypto
-  version: 9419663f5a44be8b34ca85f08abc5fe1be11f8a3
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
+  - blake2b
   - chacha20poly1305
-  - chacha20poly1305/internal/chacha20
   - curve25519
   - hkdf
+  - internal/chacha20
   - nacl/box
   - nacl/secretbox
   - pbkdf2

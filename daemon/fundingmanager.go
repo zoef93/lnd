@@ -430,19 +430,23 @@ func (f *fundingManager) Start() error {
 
 			select {
 			case <-timeoutChan:
-				// Timeout waiting for the funding transaction
-				// to confirm, so we forget the channel and
-				// delete it from the database.
+				// Timeout channel will be triggered if the number of blocks
+				// mined since the channel was initiated reaches
+				// maxWaitNumBlocksFundingConf and we are not the channel
+				// initiator.
+
 				closeInfo := &channeldb.ChannelCloseSummary{
 					ChainHash: ch.ChainHash,
 					ChanPoint: ch.FundingOutpoint,
 					RemotePub: ch.IdentityPub,
 					CloseType: channeldb.FundingCanceled,
 				}
+
 				if err := ch.CloseChannel(closeInfo); err != nil {
 					fndgLog.Errorf("Failed closing channel "+
 						"%v: %v", ch.FundingOutpoint, err)
 				}
+
 			case <-f.quit:
 				// The fundingManager is shutting down, and will
 				// resume wait on startup.
@@ -824,11 +828,10 @@ func (f *fundingManager) handleFundingOpen(fmsg *fundingOpenMsg) {
 	// synced to the network as we won't be able to properly validate the
 	// confirmation of the funding transaction.
 	isSynced, _, err := f.cfg.Wallet.IsSynced()
-	if err != nil {
-		fndgLog.Errorf("unable to query wallet: %v", err)
-		return
-	}
-	if !isSynced {
+	if err != nil || !isSynced {
+		if err != nil {
+			fndgLog.Errorf("unable to query wallet: %v", err)
+		}
 		f.failFundingFlow(
 			fmsg.peerAddress.IdentityKey, fmsg.msg.PendingChannelID,
 			lnwire.ErrorData{byte(lnwire.ErrSynchronizingChain)},
@@ -862,7 +865,7 @@ func (f *fundingManager) handleFundingOpen(fmsg *fundingOpenMsg) {
 	// port with default advertised port
 	chainHash := chainhash.Hash(msg.ChainHash)
 	reservation, err := f.cfg.Wallet.InitChannelReservation(amt, 0,
-		msg.PushAmount, btcutil.Amount(msg.FeePerKiloWeight), 0,
+		msg.PushAmount, lnwallet.SatPerKWeight(msg.FeePerKiloWeight), 0,
 		fmsg.peerAddress.IdentityKey, fmsg.peerAddress.Address,
 		&chainHash, msg.ChannelFlags)
 	if err != nil {
@@ -1485,10 +1488,11 @@ func (f *fundingManager) handleFundingSigned(fmsg *fundingSignedMsg) {
 }
 
 // waitForFundingWithTimeout is a wrapper around waitForFundingConfirmation that
-// will cancel the wait for confirmation if maxWaitNumBlocksFundingConf has
-// passed from bestHeight. In the case of timeout, the timeoutChan will be
-// closed. In case of error, confChan will be closed. In case of success,
-// a *lnwire.ShortChannelID will be passed to confChan.
+// will cancel the wait for confirmation if we are not the channel initiator and
+// the maxWaitNumBlocksFundingConf has passed from bestHeight.
+// In the case of timeout, the timeoutChan will be closed. In case of error,
+// confChan will be closed. In case of success, a *lnwire.ShortChannelID will be
+// passed to confChan.
 func (f *fundingManager) waitForFundingWithTimeout(completeChan *channeldb.OpenChannel,
 	confChan chan<- *lnwire.ShortChannelID, timeoutChan chan<- struct{}) {
 
@@ -1524,7 +1528,9 @@ func (f *fundingManager) waitForFundingWithTimeout(completeChan *channeldb.OpenC
 				return
 			}
 
-			if uint32(epoch.Height) >= maxHeight {
+			// If we are not the channel initiator it's safe
+			// to timeout the channel
+			if uint32(epoch.Height) >= maxHeight && !completeChan.IsInitiator {
 				fndgLog.Warnf("waited for %v blocks without "+
 					"seeing funding transaction confirmed,"+
 					" cancelling.", maxWaitNumBlocksFundingConf)
@@ -1537,6 +1543,11 @@ func (f *fundingManager) waitForFundingWithTimeout(completeChan *channeldb.OpenC
 				close(timeoutChan)
 				return
 			}
+
+			// TODO: If we are the channel initiator implement
+			// a method for recovering the funds from the funding
+			// transaction
+
 		case <-f.quit:
 			// The fundingManager is shutting down, will resume
 			// waiting for the funding transaction on startup.
@@ -2338,7 +2349,7 @@ func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 	// commitment transaction confirmed by the next few blocks (conf target
 	// of 3). We target the near blocks here to ensure that we'll be able
 	// to execute a timely unilateral channel closure if needed.
-	feePerWeight, err := f.cfg.FeeEstimator.EstimateFeePerWeight(3)
+	feePerVSize, err := f.cfg.FeeEstimator.EstimateFeePerVSize(3)
 	if err != nil {
 		msg.err <- err
 		return
@@ -2346,7 +2357,7 @@ func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 
 	// The protocol currently operates on the basis of fee-per-kw, so we'll
 	// multiply the computed sat/weight by 1000 to arrive at fee-per-kw.
-	commitFeePerKw := feePerWeight * 1000
+	commitFeePerKw := feePerVSize.FeePerKWeight()
 
 	// We set the channel flags to indicate whether we want this channel
 	// to be announced to the network.
@@ -2360,8 +2371,9 @@ func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 	// wallet doesn't have enough funds to commit to this channel, then the
 	// request will fail, and be aborted.
 	reservation, err := f.cfg.Wallet.InitChannelReservation(capacity,
-		localAmt, msg.pushAmt, commitFeePerKw, msg.fundingFeePerWeight,
-		peerKey, msg.peerAddress.Address.(*net.TCPAddr), &msg.chainHash, channelFlags)
+		localAmt, msg.pushAmt, commitFeePerKw, msg.fundingFeePerVSize,
+		peerKey, msg.peerAddress.Address.(*net.TCPAddr),
+		&msg.chainHash, channelFlags)
 	if err != nil {
 		msg.err <- err
 		return
@@ -2437,8 +2449,17 @@ func (f *fundingManager) handleInitFundingMsg(msg *initFundingMsg) {
 		ChannelFlags:         channelFlags,
 	}
 	if err := f.cfg.SendToPeer(peerKey, &fundingOpen); err != nil {
-		fndgLog.Errorf("Unable to send funding request message: %v", err)
-		msg.err <- err
+		e := fmt.Errorf("Unable to send funding request message: %v",
+			err)
+		fndgLog.Errorf(e.Error())
+
+		// Since we were unable to send the initial message to the peer
+		// and start the funding flow, we'll cancel this reservation.
+		if _, err := f.cancelReservationCtx(peerKey, chanID); err != nil {
+			fndgLog.Errorf("unable to cancel reservation: %v", err)
+		}
+
+		msg.err <- e
 		return
 	}
 }

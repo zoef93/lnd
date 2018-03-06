@@ -6,8 +6,9 @@ package daemon
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -38,12 +39,14 @@ import (
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnwallet"
+	"github.com/lightningnetwork/lnd/lnwallet/btcwallet"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/lightningnetwork/lnd/walletunlocker"
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
 	"github.com/roasbeef/btcutil"
+	"github.com/roasbeef/btcwallet/wallet"
 )
 
 const (
@@ -72,23 +75,12 @@ var (
 	 * - Are available in the Go 1.7.6 standard library (more are
 	 *   available in 1.8.3 and will be added after lnd no longer
 	 *   supports 1.7, including suites that support CBC mode)
-	 *
-	 * The cipher suites are ordered from strongest to weakest
-	 * primitives, but the client's preference order has more
-	 * effect during negotiation.
 	**/
 	tlsCipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 	}
 )
 
@@ -661,7 +653,7 @@ func genCertPair(certFile, keyFile string) error {
 	}
 
 	// Generate a private key for the certificate.
-	priv, err := rsa.GenerateKey(rand.Reader, 4096)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
@@ -683,10 +675,6 @@ func genCertPair(certFile, keyFile string) error {
 
 		DNSNames:    dnsNames,
 		IPAddresses: ipAddresses,
-
-		// This signature algorithm is most likely to be compatible
-		// with clients using less-common TLS libraries like BoringSSL.
-		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template,
@@ -702,9 +690,12 @@ func genCertPair(certFile, keyFile string) error {
 		return fmt.Errorf("failed to encode certificate: %v", err)
 	}
 
-	keybytes := x509.MarshalPKCS1PrivateKey(priv)
+	keybytes, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return fmt.Errorf("unable to encode privkey: %v", err)
+	}
 	keyBuf := &bytes.Buffer{}
-	err = pem.Encode(keyBuf, &pem.Block{Type: "RSA PRIVATE KEY",
+	err = pem.Encode(keyBuf, &pem.Block{Type: "EC PRIVATE KEY",
 		Bytes: keybytes})
 	if err != nil {
 		return fmt.Errorf("failed to encode private key: %v", err)
@@ -842,14 +833,47 @@ func waitForWalletPassword(grpcEndpoints, restEndpoints []string,
 		"Use `lncli create` to create wallet, or " +
 		"`lncli unlock` to unlock already created wallet.")
 
-	// We currently don't distinguish between getting a password to
-	// be used for creation or unlocking, as a new wallet db will be
-	// created if none exists when creating the chain control.
+	// We currently don't distinguish between getting a password to be used
+	// for creation or unlocking, as a new wallet db will be created if
+	// none exists when creating the chain control.
 	select {
-	case walletPw := <-pwService.CreatePasswords:
-		return walletPw, walletPw, nil
+
+	// The wallet is being created for the first time, we'll check to see
+	// if the user provided any entropy for seed creation. If so, then
+	// we'll create the wallet early to load the seed.
+	case initMsg := <-pwService.InitMsgs:
+		password := initMsg.Passphrase
+		cipherSeed := initMsg.WalletSeed
+
+		netDir := btcwallet.NetworkDir(
+			chainConfig.ChainDir, activeNetParams.Params,
+		)
+		loader := wallet.NewLoader(activeNetParams.Params, netDir)
+
+		// With the seed, we can now use the wallet loader to create
+		// the wallet, then unload it so it can be opened shortly
+		// after.
+		//
+		// TODO(roasbeef): extend loader to also accept birthday
+		//  * also check with keychain version
+		_, err = loader.CreateNewWallet(
+			password, password, cipherSeed.Entropy[:],
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if err := loader.UnloadWallet(); err != nil {
+			return nil, nil, err
+		}
+
+		return password, password, nil
+
+	// The wallet has already been created in the past, and is simply being
+	// unlocked. So we'll just return these passphrases.
 	case walletPw := <-pwService.UnlockPasswords:
 		return walletPw, walletPw, nil
+
 	case <-shutdownChannel:
 		return nil, nil, fmt.Errorf("shutting down")
 	}
