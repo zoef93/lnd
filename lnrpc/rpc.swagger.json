@@ -61,6 +61,36 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "inactive_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "public_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          },
+          {
+            "name": "private_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
         "tags": [
           "Lightning"
         ]
@@ -391,7 +421,7 @@
     },
     "/v1/initwallet": {
       "post": {
-        "summary": "* lncli: `init`\nInitWallet is used when lnd is starting up for the first time to fully\ninitialize the daemon and its internal wallet. At the very least a wallet\npassword must be provided. This will be used to encrypt sensitive material\non disk.",
+        "summary": "* \nInitWallet is used when lnd is starting up for the first time to fully\ninitialize the daemon and its internal wallet. At the very least a wallet\npassword must be provided. This will be used to encrypt sensitive material\non disk.",
         "description": "In the case of a recovery scenario, the user can also specify their aezeed\nmnemonic and passphrase. If set, then the daemon will use this prior state\nto initialize its internal wallet.\n\nAlternatively, this can be used along with the GenSeed RPC to obtain a\nseed, then present it to the user. Once it has been verified by the user,\nthe seed can be fed into this RPC in order to commit the new wallet.",
         "operationId": "InitWallet",
         "responses": {
@@ -662,7 +692,7 @@
     },
     "/v1/switch": {
       "post": {
-        "summary": "* lncli: `forwardinghistory`\nForwardingHistory allows the caller to query the htlcswitch for a record of\nall HTLC's forwarded within the target time range, and integer offset\nwithin that time range. If no time-range is specified, then the first chunk\nof the past 24 hrs of forwarding history are returned.",
+        "summary": "* lncli: `fwdinghistory`\nForwardingHistory allows the caller to query the htlcswitch for a record of\nall HTLC's forwarded within the target time range, and integer offset\nwithin that time range. If no time-range is specified, then the first chunk\nof the past 24 hrs of forwarding history are returned.",
         "description": "A list of forwarding events are returned. The size of each forwarding event\nis 40 bytes, and the max message size able to be returned in gRPC is 4 MiB.\nAs a result each message can only contain 50k entries.  Each response has\nthe index offset of the last entry. The index offset can be provided to the\nrequest to allow the caller to skip a series of records.",
         "operationId": "ForwardingHistory",
         "responses": {
@@ -863,7 +893,20 @@
         }
       }
     },
-    "lnrpcActiveChannel": {
+    "lnrpcAddInvoiceResponse": {
+      "type": "object",
+      "properties": {
+        "r_hash": {
+          "type": "string",
+          "format": "byte"
+        },
+        "payment_request": {
+          "type": "string",
+          "description": "*\nA bare-bones invoice for a payment within the Lightning Network.  With the\ndetails of the invoice, the sender has all the data necessary to send a\npayment to the recipient."
+        }
+      }
+    },
+    "lnrpcChannel": {
       "type": "object",
       "properties": {
         "active": {
@@ -945,19 +988,11 @@
           "type": "integer",
           "format": "int64",
           "description": "*\nThe CSV delay expressed in relative blocks. If the channel is force\nclosed, we'll need to wait for this many blocks before we can regain our\nfunds."
-        }
-      }
-    },
-    "lnrpcAddInvoiceResponse": {
-      "type": "object",
-      "properties": {
-        "r_hash": {
-          "type": "string",
-          "format": "byte"
         },
-        "payment_request": {
-          "type": "string",
-          "description": "*\nA bare-bones invoice for a payment within the Lightning Network.  With the\ndetails of the invoice, the sender has all the data necessary to send a\npayment to the recipient."
+        "private": {
+          "type": "boolean",
+          "format": "boolean",
+          "title": "/ Whether this channel is advertised to the network or not"
         }
       }
     },
@@ -1591,7 +1626,7 @@
         "channels": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/lnrpcActiveChannel"
+            "$ref": "#/definitions/lnrpcChannel"
           },
           "title": "/ The list of active channels"
         }

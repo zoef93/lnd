@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boltdb/bolt"
+	"github.com/coreos/bbolt"
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/lightninglabs/neutrino"
@@ -1841,7 +1841,7 @@ func waitForMempoolTx(r *rpctest.Harness, txid *chainhash.Hash) error {
 	var found bool
 	var tx *btcutil.Tx
 	var err error
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(30 * time.Second)
 	for !found {
 		// Do a short wait
 		select {
@@ -2149,6 +2149,7 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 			NetParams:    netParams,
 			ChainSource:  aliceClient,
 			FeeEstimator: feeEstimator,
+			CoinType:     keychain.CoinTypeTestnet,
 		}
 		aliceWalletController, err = walletDriver.New(aliceWalletConfig)
 		if err != nil {
@@ -2157,6 +2158,7 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 		aliceSigner = aliceWalletController.(*btcwallet.BtcWallet)
 		aliceKeyRing = keychain.NewBtcWalletKeyRing(
 			aliceWalletController.(*btcwallet.BtcWallet).InternalWallet(),
+			keychain.CoinTypeTestnet,
 		)
 
 		bobWalletConfig := &btcwallet.Config{
@@ -2166,6 +2168,7 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 			NetParams:    netParams,
 			ChainSource:  bobClient,
 			FeeEstimator: feeEstimator,
+			CoinType:     keychain.CoinTypeTestnet,
 		}
 		bobWalletController, err = walletDriver.New(bobWalletConfig)
 		if err != nil {
@@ -2174,6 +2177,7 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 		bobSigner = bobWalletController.(*btcwallet.BtcWallet)
 		bobKeyRing = keychain.NewBtcWalletKeyRing(
 			bobWalletController.(*btcwallet.BtcWallet).InternalWallet(),
+			keychain.CoinTypeTestnet,
 		)
 		bio = bobWalletController.(*btcwallet.BtcWallet)
 	default:
