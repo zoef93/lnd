@@ -14,11 +14,13 @@ func Start(appDir string) {
 	// TODO(roasbeef): remove this if required version # is > 1.6?
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	fmt.Println("Start LND")
+
 	// Call the "real" main in a nested manner so the defers will properly
 	// be executed in the case of a graceful shutdown.
-
 	if err := daemon.LndMain(appDir); err != nil {
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
+			fmt.Println("Start main")
 		} else {
 			fmt.Fprintln(os.Stderr, err)
 		}

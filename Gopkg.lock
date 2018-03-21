@@ -56,6 +56,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/btcsuite/go-flags"
+  packages = ["."]
+  revision = "6c288d648c1cc1befcb90cb5511dcacf64ae8e61"
+
+[[projects]]
+  branch = "master"
   name = "github.com/btcsuite/go-socks"
   packages = ["socks"]
   revision = "4720035b7bfd2a9bb130b1c184f8bbe41b6f0d0f"
@@ -359,6 +365,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "def340dd46b9ae439bf7c1e27155358aba5bb709c613fc1c577dacc4a2d4a1be"
+  inputs-digest = "99c8d5517715dd285fe667c8f04899ddb6fb50bf13ee286f34978d162a8077ac"
   solver-name = "gps-cdcl"
   solver-version = 1

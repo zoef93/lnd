@@ -21,7 +21,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
-	//"runtime"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -35,7 +34,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	//flags "github.com/jessevdk/go-flags"
 	"github.com/lightningnetwork/lnd/autopilot"
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/keychain"
@@ -89,25 +87,14 @@ var (
 // lndMain is the true entry point for lnd. This function is required since
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
-//func lndMain() error {
 func LndMain(appDir string) error {
 	// Load the configuration, and parse any command line options. This
 	// function will also set up logging properly.
-	//loadedConfig, err := loadConfig()
 	loadedConfig, err := loadConfig(appDir)
 	if err != nil {
 		return err
 	}
 	cfg = loadedConfig
-
-	fmt.Println(cfg)
-	fmt.Println("bitcoin:", cfg.Bitcoin.Active)
-	fmt.Println("chain dir:", cfg.Bitcoin.ChainDir)
-	fmt.Println("test net:", cfg.Bitcoin.TestNet3)
-	fmt.Println("sim net:", cfg.Bitcoin.SimNet)
-	fmt.Println("neutrino:", cfg.NeutrinoMode.Active)
-	fmt.Println("connect peers", cfg.NeutrinoMode.ConnectPeers)
-
 	defer func() {
 		if logRotator != nil {
 			logRotator.Close()
@@ -763,7 +750,7 @@ func genCertPair(certFile, keyFile string) error {
 // genMacaroons generates a pair of macaroon files; one admin-level and one
 // read-only. These can also be used to generate more granular macaroons.
 func genMacaroons(ctx context.Context, svc *macaroons.Service, admFile,
-	roFile string) error {
+roFile string) error {
 
 	// Generate the read-only macaroon and write it to a file.
 	roMacaroon, err := svc.Oven.NewMacaroon(ctx, bakery.LatestVersion, nil,
@@ -924,8 +911,8 @@ func waitForWalletPassword(grpcEndpoints, restEndpoints []string,
 
 		return password, password, nil
 
-	// The wallet has already been created in the past, and is simply being
-	// unlocked. So we'll just return these passphrases.
+		// The wallet has already been created in the past, and is simply being
+		// unlocked. So we'll just return these passphrases.
 	case walletPw := <-pwService.UnlockPasswords:
 		return walletPw, walletPw, nil
 

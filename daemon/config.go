@@ -203,6 +203,16 @@ type config struct {
 // 	2) Pre-parse the command line to check for an alternative config file
 // 	3) Load configuration file overwriting defaults with any specified options
 // 	4) Parse CLI options and overwrite/add any specified options
+func loadConfig(appDir string) (*config, error) {
+	defaultLndDir = appDir
+	defaultConfigFile := filepath.Join(defaultLndDir, defaultConfigFilename)
+	defaultDataDir := filepath.Join(defaultLndDir, defaultDataDirname)
+	defaultTLSCertPath := filepath.Join(defaultLndDir, defaultTLSCertFilename)
+	defaultTLSKeyPath := filepath.Join(defaultLndDir, defaultTLSKeyFilename)
+	defaultAdminMacPath := filepath.Join(defaultLndDir, defaultAdminMacFilename)
+	defaultReadMacPath := filepath.Join(defaultLndDir, defaultReadMacFilename)
+	defaultLogDir := filepath.Join(defaultLndDir, defaultLogDirname)
+
 	defaultCfg := config{
 		LndDir:       defaultLndDir,
 		ConfigFile:   defaultConfigFile,
@@ -218,6 +228,7 @@ type config struct {
 			BaseFee:       defaultBitcoinBaseFeeMSat,
 			FeeRate:       defaultBitcoinFeeRate,
 			TimeLockDelta: defaultBitcoinTimeLockDelta,
+			Node:          "btcd",
 		},
 		BtcdMode: &btcdConfig{
 			Dir:     defaultBtcdDir,
@@ -384,8 +395,8 @@ type config struct {
 			"active together"
 		return nil, fmt.Errorf(str, funcName)
 
-	// Either Bitcoin must be active, or Litecoin must be active.
-	// Otherwise, we don't know which chain we're on.
+		// Either Bitcoin must be active, or Litecoin must be active.
+		// Otherwise, we don't know which chain we're on.
 	case !cfg.Bitcoin.Active && !cfg.Litecoin.Active:
 		return nil, fmt.Errorf("%s: either bitcoin.active or "+
 			"litecoin.active must be set to 1 (true)", funcName)
